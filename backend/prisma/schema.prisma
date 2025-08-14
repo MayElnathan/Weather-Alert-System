@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Alert {
+  id          String   @id @default(cuid())
+  name        String
+  location    String
+  parameter   String   // temperature, windSpeed, precipitation, etc.
+  operator    String   // gt, lt, gte, lte, eq, ne
+  threshold   Float
+  unit        String   // celsius, fahrenheit, mph, kmh, mm, etc.
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  alertHistory AlertHistory[]
+
+  @@map("alerts")
+}
+
+model WeatherData {
+  id          String   @id @default(cuid())
+  location    String
+  temperature Float?
+  feelsLike  Float?
+  humidity    Float?
+  windSpeed   Float?
+  windDirection Float?
+  precipitation Float?
+  pressure    Float?
+  visibility  Float?
+  uvIndex    Float?
+  cloudCover Float?
+  timestamp  DateTime @default(now())
+  
+  // Additional fields from Tomorrow.io API
+  weatherCode Int?
+  weatherDescription String?
+  
+  @@map("weather_data")
+}
+
+model AlertHistory {
+  id        String   @id @default(cuid())
+  alertId   String
+  alert     Alert    @relation(fields: [alertId], references: [id])
+  isTriggered Boolean
+  currentValue Float?
+  thresholdValue Float
+  timestamp DateTime @default(now())
+  
+  @@map("alert_history")
+}
+
+model SystemConfig {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  description String?
+  updatedAt DateTime @updatedAt
+  
+  @@map("system_config")
+}
