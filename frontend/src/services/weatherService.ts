@@ -29,12 +29,13 @@ apiClient.interceptors.response.use(
   }
 );
 
-export const getCurrentWeather = async (location: string): Promise<WeatherData> => {
+export const getCurrentWeather = async (location: string): Promise<WeatherData & { coordinates?: string }> => {
   try {
-    const response = await apiClient.get<WeatherResponse>(`/weather/current/${encodeURIComponent(location)}`);
+    const response = await apiClient.get<WeatherResponse & { coordinates?: string }>(`/weather/current/${encodeURIComponent(location)}`);
     return {
       ...response.data.data,
       location: response.data.location,
+      coordinates: response.data.coordinates,
     };
   } catch (error) {
     console.error('Error fetching current weather:', error);

@@ -1,31 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Thermometer, Wind, Droplets, Eye, Cloud, Sun, MapPin, RefreshCw } from 'lucide-react';
-import { getCurrentWeather, getSupportedLocations } from '../services/weatherService';
+import { getCurrentWeather } from '../services/weatherService';
 import { WeatherData } from '../types/weather';
+import { LocationInfo } from '../services/geolocationService';
 import WeatherCard from '../components/WeatherCard';
-import LocationSelector from '../components/LocationSelector';
+import HomeLocationSelector from '../components/HomeLocationSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const HomePage = () => {
-  const [selectedLocation, setSelectedLocation] = useState('New York, NY');
-  const [locations, setLocations] = useState<
-    Array<{ name: string; coordinates: string; country: string }>
-  >([]);
+  const [selectedLocation, setSelectedLocation] = useState('Tel Aviv, Israel');
+  const [locationDisplayName, setLocationDisplayName] = useState('Tel Aviv, Israel');
   const [isCoordinateLocation, setIsCoordinateLocation] = useState(false);
+  const [currentLocationInfo, setCurrentLocationInfo] = useState<LocationInfo | null>(null);
 
-  // Fetch supported locations
-  useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        const response = await getSupportedLocations();
-        setLocations(response.data);
-      } catch (error) {
-        console.error('Failed to fetch locations:', error);
-      }
-    };
-    fetchLocations();
-  }, []);
+
 
   // Fetch current weather data
   const {
@@ -42,11 +31,40 @@ const HomePage = () => {
     refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
   });
 
+  // Update display name when weather data is received
+  useEffect(() => {
+    if (weatherData && weatherData.location) {
+      setLocationDisplayName(weatherData.location);
+      
+      // If we have coordinates and location data, create LocationInfo for the selector
+      if (weatherData.coordinates && isCoordinateLocation) {
+        setCurrentLocationInfo({
+          coordinates: weatherData.coordinates,
+          name: weatherData.location,
+          isCurrentLocation: true,
+        });
+      }
+    }
+  }, [weatherData, isCoordinateLocation]);
+
   const handleLocationChange = (location: string) => {
     setSelectedLocation(location);
     // Check if the location is coordinates
     const coordMatch = location.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/);
     setIsCoordinateLocation(!!coordMatch);
+    
+    // If it's coordinates, we need to get the display name
+    if (coordMatch) {
+      // For coordinates, keep the current display name until we get the new one
+      // Don't show "Getting location name..." immediately
+      // Clear current location info since we're getting new coordinates
+      setCurrentLocationInfo(null);
+    } else {
+      // For city names, use the name directly
+      setLocationDisplayName(location);
+      // Clear current location info for predefined cities
+      setCurrentLocationInfo(null);
+    }
   };
 
   const handleRefresh = () => {
@@ -103,10 +121,10 @@ const HomePage = () => {
 
       {/* Location Selector */}
       <div className="flex justify-center">
-        <LocationSelector
-          locations={locations}
+        <HomeLocationSelector
           selectedLocation={selectedLocation}
           onLocationChange={handleLocationChange}
+          currentLocationInfo={currentLocationInfo}
         />
       </div>
 
@@ -135,12 +153,7 @@ const HomePage = () => {
                     {weatherData.weatherDescription}
                   </h3>
                   <p className="text-gray-600">
-                    {weatherData.location}
-                    {isCoordinateLocation && weatherData.coordinates && (
-                      <span className="block text-sm text-gray-500">
-                        Coordinates: {weatherData.coordinates}
-                      </span>
-                    )}
+                    {locationDisplayName}
                   </p>
                 </div>
               </div>

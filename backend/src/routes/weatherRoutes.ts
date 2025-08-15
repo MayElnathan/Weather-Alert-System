@@ -73,6 +73,21 @@ router.get('/current/:location', async (req: Request, res: Response) => {
     // Create service instance with current environment variables
     const tomorrowIOService = createTomorrowIOService();
 
+    // Check rate limit before proceeding
+    const rateLimitInfo = tomorrowIOService.getRateLimitInfo();
+    if (!rateLimitInfo.canProceed) {
+      const resetTime = rateLimitInfo.resetTime;
+      const retryAfter = resetTime ? Math.ceil((resetTime - Date.now()) / 1000) : 60;
+      
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit exceeded',
+        message: `Too many requests. Please try again in ${retryAfter} seconds.`,
+        retryAfter,
+        remainingRequests: rateLimitInfo.remainingRequests,
+      });
+    }
+
     // Fetch weather data
     const weatherData = await tomorrowIOService.getCurrentWeather(location);
 
@@ -89,7 +104,7 @@ router.get('/current/:location', async (req: Request, res: Response) => {
       // Don't fail the request if database save fails
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         ...weatherData,
@@ -100,10 +115,24 @@ router.get('/current/:location', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString(),
       location: locationInfo.displayName,
       coordinates: locationInfo.coordinates,
+      rateLimit: {
+        remainingRequests: rateLimitInfo.remainingRequests,
+        resetTime: rateLimitInfo.resetTime,
+      },
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new CustomError('Invalid location parameter', 400);
+    }
+
+    // Handle rate limit errors specifically
+    if (error instanceof Error && error.name === 'RateLimitError') {
+      return res.status(429).json({
+        success: false,
+        error: 'Rate limit exceeded',
+        message: error.message,
+        retryAfter: 60,
+      });
     }
 
     logger.error('Error fetching current weather:', error);
@@ -211,7 +240,7 @@ router.get('/forecast/:location', async (req: Request, res: Response) => {
  *                       country:
  *                         type: string
  */
-router.get('/locations', async (req: Request, res: Response) => {
+router.get('/locations', async (_req: Request, res: Response) => {
   try {
     // This could be expanded to include more locations or fetched from a database
     const commonLocations = [
@@ -269,7 +298,7 @@ router.get('/locations', async (req: Request, res: Response) => {
  *                       unit:
  *                         type: string
  */
-router.get('/parameters', async (req: Request, res: Response) => {
+router.get('/parameters', async (_req: Request, res: Response) => {
   try {
     const weatherParameters = [
       { key: 'temperature', name: 'Temperature', description: 'Air temperature', unit: '°C/°F' },
@@ -305,7 +334,7 @@ router.get('/parameters', async (req: Request, res: Response) => {
       count: weatherParameters.length,
     });
   } catch (error) {
-    logger.error('Error fetching weather parameters:', error);
+    logger.error('Error fetching supported weather parameters:', error);
     throw error;
   }
 });
@@ -375,6 +404,49 @@ router.post('/location/validate', async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Error validating location:', error);
+    throw error;
+  }
+});
+
+/**
+ * @swagger
+ * /api/weather/rate-limit:
+ *   get:
+ *     summary: Get current rate limit status
+ *     description: Check the current rate limit status for Tomorrow.io API
+ *     tags: [Weather]
+ *     responses:
+ *       200:
+ *         description: Current rate limit information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     remainingRequests:
+ *                       type: number
+ *                     resetTime:
+ *                       type: number
+ *                     canProceed:
+ *                       type: boolean
+ */
+router.get('/rate-limit', async (_req: Request, res: Response) => {
+  try {
+    const tomorrowIOService = createTomorrowIOService();
+    const rateLimitInfo = tomorrowIOService.getRateLimitInfo();
+
+    res.json({
+      success: true,
+      data: rateLimitInfo,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error('Error fetching rate limit info:', error);
     throw error;
   }
 });

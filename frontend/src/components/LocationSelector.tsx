@@ -13,12 +13,14 @@ interface LocationSelectorProps {
   locations: Location[];
   selectedLocation: string;
   onLocationChange: (location: string) => void;
+  currentLocationInfo?: LocationInfo | null;
 }
 
 const LocationSelector = ({
   locations,
   selectedLocation,
   onLocationChange,
+  currentLocationInfo,
 }: LocationSelectorProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -54,6 +56,28 @@ const LocationSelector = ({
   };
 
   const selectedLocationData = locations.find(loc => loc.name === selectedLocation);
+  
+  // Determine what to display for the selected location
+  const getDisplayText = () => {
+    // If we have current location info and the selected location is coordinates, show the name
+    if (currentLocationInfo && currentLocationInfo.coordinates === selectedLocation) {
+      return currentLocationInfo.name;
+    }
+    
+    // If it's a predefined location, show the name
+    if (selectedLocationData) {
+      return selectedLocationData.name;
+    }
+    
+    // If it's coordinates but no current location info, show a placeholder
+    const coordMatch = selectedLocation.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/);
+    if (coordMatch) {
+      return 'Getting location name...';
+    }
+    
+    // Fallback to the selected location
+    return selectedLocation;
+  };
 
   return (
     <div className="relative">
@@ -64,7 +88,7 @@ const LocationSelector = ({
       >
         <MapPin className="h-4 w-4 mr-2 text-gray-400" />
         <span className="mr-2">
-          {selectedLocationData ? selectedLocationData.name : selectedLocation}
+          {getDisplayText()}
         </span>
         <ChevronDown className="h-4 w-4 text-gray-400" />
       </button>

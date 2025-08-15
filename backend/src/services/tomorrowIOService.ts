@@ -1,5 +1,8 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 import { logger } from '../utils/logger';
+import { tomorrowIORateLimiter } from '../utils/rateLimiter';
+import { defaultRetryHandler } from '../utils/retry';
+import { weatherCache } from '../utils/cache';
 
 export interface WeatherData {
   temperature: number;
@@ -30,20 +33,37 @@ export class TomorrowIOService {
     this.config = config;
     this.client = axios.create({
       baseURL: config.baseUrl,
-      timeout: 10000,
+      timeout: 15000, // Increased timeout
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
     });
 
-    // Add request interceptor for logging
+    // Add request interceptor for logging and rate limiting
     this.client.interceptors.request.use(
       (config) => {
+        // Check rate limit before making request
+        const rateLimitCheck = tomorrowIORateLimiter.canProceed('weather-api');
+        
+        if (!rateLimitCheck.canProceed) {
+          const retryAfter = rateLimitCheck.retryAfter;
+          if (retryAfter) {
+            const error = new Error(`Rate limit exceeded. Try again after ${new Date(retryAfter).toISOString()}`);
+            error.name = 'RateLimitError';
+            return Promise.reject(error);
+          } else {
+            const error = new Error('Rate limit exceeded. Please try again later.');
+            error.name = 'RateLimitError';
+            return Promise.reject(error);
+          }
+        }
+
         logger.debug('Tomorrow.io API Request:', {
           method: config.method?.toUpperCase(),
           url: config.url,
           params: config.params,
+          remainingRequests: tomorrowIORateLimiter.getRemainingRequests('weather-api'),
         });
         return config;
       },
@@ -53,7 +73,7 @@ export class TomorrowIOService {
       }
     );
 
-    // Add response interceptor for logging
+    // Add response interceptor for logging and error handling
     this.client.interceptors.response.use(
       (response) => {
         logger.debug('Tomorrow.io API Response:', {
@@ -63,7 +83,24 @@ export class TomorrowIOService {
         });
         return response;
       },
-      (error) => {
+      (error: AxiosError) => {
+        // Handle rate limiting specifically
+        if (error.response?.status === 429) {
+          const retryAfter = error.response.headers['retry-after'];
+          const retryAfterMs = retryAfter ? parseInt(retryAfter) * 1000 : 60000;
+          
+          logger.warn('Tomorrow.io API rate limit hit:', {
+            status: error.response.status,
+            retryAfter: retryAfterMs,
+            url: error.config?.url,
+          });
+
+          // Create a more informative error
+          const rateLimitError = new Error(`Rate limit exceeded. Try again in ${Math.ceil(retryAfterMs / 1000)} seconds`);
+          rateLimitError.name = 'RateLimitError';
+          return Promise.reject(rateLimitError);
+        }
+
         logger.error('Tomorrow.io API Response Error:', {
           status: error.response?.status,
           message: error.message,
@@ -75,11 +112,42 @@ export class TomorrowIOService {
   }
 
   /**
-   * Get current weather data for a location
+   * Get current weather data for a location with caching and retry logic
    * @param location - City name or coordinates (lat,lng)
    * @returns Promise<WeatherData>
    */
   async getCurrentWeather(location: string): Promise<WeatherData> {
+    // Check cache first
+    const cacheKey = `weather:${location}`;
+    const cachedData = weatherCache.get(cacheKey);
+    if (cachedData) {
+      logger.debug('Returning cached weather data for:', location);
+      return cachedData;
+    }
+
+    // Use retry handler with exponential backoff
+    const result = await defaultRetryHandler.execute(
+      async () => {
+        return await this.fetchWeatherData(location);
+      }
+    );
+
+    if (!result.success) {
+      throw result.error;
+    }
+
+    // Cache the successful result
+    weatherCache.set(cacheKey, result.data!, 10 * 60 * 1000); // 10 minutes TTL
+    
+    return result.data!;
+  }
+
+  /**
+   * Fetch weather data from API (internal method)
+   * @param location - Location string
+   * @returns Promise<WeatherData>
+   */
+  private async fetchWeatherData(location: string): Promise<WeatherData> {
     try {
       // Parse location - could be city name or coordinates
       const params = this.parseLocation(location);
@@ -122,17 +190,49 @@ export class TomorrowIOService {
         location,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      throw new Error(`Failed to fetch weather data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
     }
   }
 
   /**
-   * Get weather forecast for a location
+   * Get weather forecast for a location with caching
    * @param location - City name or coordinates (lat,lng)
    * @param timesteps - Forecast timesteps (e.g., '1h', '1d')
    * @returns Promise<any>
    */
   async getForecast(location: string, timesteps: string = '1h'): Promise<any> {
+    // Check cache first
+    const cacheKey = `forecast:${location}:${timesteps}`;
+    const cachedData = weatherCache.get(cacheKey);
+    if (cachedData) {
+      logger.debug('Returning cached forecast data for:', location);
+      return cachedData;
+    }
+
+    // Use retry handler
+    const result = await defaultRetryHandler.execute(
+      async () => {
+        return await this.fetchForecastData(location, timesteps);
+      }
+    );
+
+    if (!result.success) {
+      throw result.error;
+    }
+
+    // Cache the successful result (forecast data can be cached longer)
+    weatherCache.set(cacheKey, result.data!, 30 * 60 * 1000); // 30 minutes TTL
+    
+    return result.data!;
+  }
+
+  /**
+   * Fetch forecast data from API (internal method)
+   * @param location - Location string
+   * @param timesteps - Forecast timesteps
+   * @returns Promise<any>
+   */
+  private async fetchForecastData(location: string, timesteps: string): Promise<any> {
     try {
       const params = this.parseLocation(location);
       
@@ -152,7 +252,7 @@ export class TomorrowIOService {
         timesteps,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      throw new Error(`Failed to fetch forecast data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
     }
   }
 
@@ -172,6 +272,7 @@ export class TomorrowIOService {
     // For city names, we need to convert them to coordinates
     // For now, let's use some common city coordinates
     const cityCoordinates: { [key: string]: string } = {
+      'Tel Aviv, Israel': '32.0853,34.7818',
       'New York, NY': '40.7128,-74.0060',
       'London, UK': '51.5074,-0.1278',
       'Tokyo, Japan': '35.6762,139.6503',
@@ -245,5 +346,25 @@ export class TomorrowIOService {
       logger.error('Tomorrow.io API configuration validation failed:', error);
       return false;
     }
+  }
+
+  /**
+   * Get rate limit information
+   * @returns Object with rate limit details
+   */
+  getRateLimitInfo(): {
+    remainingRequests: number;
+    resetTime: number | null;
+    canProceed: boolean;
+  } {
+    const remaining = tomorrowIORateLimiter.getRemainingRequests('weather-api');
+    const resetTime = tomorrowIORateLimiter.getResetTime('weather-api');
+    const canProceed = tomorrowIORateLimiter.canProceed('weather-api').canProceed;
+
+    return {
+      remainingRequests: remaining,
+      resetTime,
+      canProceed,
+    };
   }
 }

@@ -115,6 +115,49 @@ export class GeolocationService {
   }
 
   /**
+   * Search for locations by name (forward geocoding)
+   */
+  static async searchLocations(query: string, limit: number = 5): Promise<LocationInfo[]> {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=${limit}&addressdetails=1`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to search locations');
+      }
+
+      const data = await response.json();
+      
+      return data.map((item: any) => {
+        const address = item.address || {};
+        const city = address.city || address.town || address.village || address.county || '';
+        const state = address.state || address.province || '';
+        const country = address.country || '';
+        
+        let displayName = '';
+        if (city) displayName += city;
+        if (state && city !== state) displayName += displayName ? `, ${state}` : state;
+        if (country) displayName += displayName ? `, ${country}` : country;
+        
+        // Fallback to the full display name if no structured address
+        if (!displayName) {
+          displayName = item.display_name || query;
+        }
+
+        return {
+          coordinates: `${item.lat},${item.lon}`,
+          name: displayName,
+          isCurrentLocation: false,
+        };
+      });
+    } catch (error) {
+      console.error('Location search failed:', error);
+      return [];
+    }
+  }
+
+  /**
    * Check if geolocation is supported and permission is granted
    */
   static async checkGeolocationSupport(): Promise<{

@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X, Save, AlertTriangle } from 'lucide-react';
 import { Alert, CreateAlertData } from '../types/alert';
+import { LocationInfo } from '../services/geolocationService';
+import LocationAutocomplete from './LocationAutocomplete';
 
 const alertSchema = z.object({
   name: z.string().min(1, 'Alert name is required').max(100, 'Alert name too long'),
@@ -28,6 +30,7 @@ interface AlertFormProps {
 
 const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedLocationCoordinates, setSelectedLocationCoordinates] = useState<string>('');
 
   const {
     register,
@@ -35,6 +38,7 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
     formState: { errors },
     reset,
     setValue,
+    watch,
   } = useForm<AlertFormData>({
     resolver: zodResolver(alertSchema),
     defaultValues: {
@@ -57,19 +61,37 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
       setValue('threshold', alert.threshold);
       setValue('unit', alert.unit);
       setValue('description', alert.description || '');
+      
+      // Check if the alert location is coordinates and set them
+      const coordMatch = alert.location.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/);
+      if (coordMatch) {
+        setSelectedLocationCoordinates(alert.location);
+      }
     }
   }, [alert, setValue]);
 
   const handleFormSubmit = async (data: AlertFormData) => {
     setIsSubmitting(true);
     try {
-      await onSubmit(data);
+      // Use coordinates if available, otherwise use the location name
+      const locationData = selectedLocationCoordinates || data.location;
+      const alertData = {
+        ...data,
+        location: locationData,
+      };
+      
+      await onSubmit(alertData);
       reset();
+      setSelectedLocationCoordinates('');
     } catch (error) {
       console.error('Form submission error:', error);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleLocationSelect = (location: LocationInfo) => {
+    setSelectedLocationCoordinates(location.coordinates);
   };
 
   const parameterOptions = [
@@ -101,7 +123,7 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+      <div className="relative top-20 mx-auto p-5 border w-[90%] max-w-2xl shadow-lg rounded-md bg-white">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium text-gray-900">
             {alert ? 'Edit Alert' : 'Create New Alert'}
@@ -138,15 +160,20 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
             <label htmlFor="location" className="form-label">
               Location *
             </label>
-            <input
-              {...register('location')}
-              type="text"
-              id="location"
-              className={`input-field ${errors.location ? 'border-red-300' : ''}`}
-              placeholder="e.g., New York, NY or 40.7128,-74.0060"
+            <LocationAutocomplete
+              value={watch('location')}
+              onChange={(value) => setValue('location', value)}
+              onLocationSelect={handleLocationSelect}
+              placeholder="Start typing to search for a location..."
+              error={!!errors.location}
             />
             {errors.location && (
               <p className="mt-1 text-sm text-red-600">{errors.location.message}</p>
+            )}
+            {selectedLocationCoordinates && (
+              <p className="mt-1 text-xs text-green-600">
+                ✓ Location coordinates captured: {selectedLocationCoordinates}
+              </p>
             )}
           </div>
 
