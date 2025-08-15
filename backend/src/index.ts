@@ -57,13 +57,8 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env['NODE_ENV'] || 'development',
-  });
+app.get('/health', (_req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 // API documentation

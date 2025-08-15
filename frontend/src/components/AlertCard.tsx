@@ -1,15 +1,43 @@
-import { Edit, Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
+import React from 'react';
+import { Edit, Trash2, AlertTriangle, CheckCircle, Power, PowerOff } from 'lucide-react';
 import { Alert } from '../types/alert';
 
 interface AlertCardProps {
   alert: Alert;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleActive: (alertId: string, isActive: boolean) => void;
   operatorSymbol: string;
   parameterName: string;
 }
 
-const AlertCard = ({ alert, onEdit, onDelete, operatorSymbol, parameterName }: AlertCardProps) => {
+/**
+ * AlertCard component with toggle functionality for active state
+ * 
+ * Usage in parent component:
+ * ```tsx
+ * const handleToggleActive = async (alertId: string, isActive: boolean) => {
+ *   try {
+ *     await toggleAlertActive(alertId, isActive);
+ *     // Refresh alerts or update local state
+ *     await fetchAlerts();
+ *   } catch (error) {
+ *     console.error('Failed to toggle alert:', error);
+ *     // Handle error (show toast, etc.)
+ *   }
+ * };
+ * 
+ * <AlertCard
+ *   alert={alert}
+ *   onEdit={() => handleEdit(alert)}
+ *   onDelete={() => handleDelete(alert.id)}
+ *   onToggleActive={handleToggleActive}
+ *   operatorSymbol={getOperatorSymbol(alert.operator)}
+ *   parameterName={getParameterName(alert.parameter)}
+ * />
+ * ```
+ */
+const AlertCard = ({ alert, onEdit, onDelete, onToggleActive, operatorSymbol, parameterName }: AlertCardProps) => {
   const getParameterIcon = (parameter: string) => {
     const icons: { [key: string]: React.ReactNode } = {
       temperature: <div className="h-8 w-8 bg-red-100 rounded-full flex items-center justify-center">🌡️</div>,
@@ -26,6 +54,10 @@ const AlertCard = ({ alert, onEdit, onDelete, operatorSymbol, parameterName }: A
     return icons[parameter] || <div className="h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center">📊</div>;
   };
 
+  const handleToggleActive = () => {
+    onToggleActive(alert.id, !alert.isActive);
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4">
@@ -37,6 +69,24 @@ const AlertCard = ({ alert, onEdit, onDelete, operatorSymbol, parameterName }: A
           </div>
         </div>
         <div className="flex space-x-2">
+          {/* Toggle Active Button */}
+          <button
+            onClick={handleToggleActive}
+            className={`p-2 rounded-md transition-colors ${
+              alert.isActive
+                ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+            }`}
+            title={alert.isActive ? 'Deactivate alert' : 'Activate alert'}
+          >
+            {alert.isActive ? (
+              <Power className="h-4 w-4" />
+            ) : (
+              <PowerOff className="h-4 w-4" />
+            )}
+          </button>
+          
+          {/* Edit Button */}
           <button
             onClick={onEdit}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
@@ -44,6 +94,8 @@ const AlertCard = ({ alert, onEdit, onDelete, operatorSymbol, parameterName }: A
           >
             <Edit className="h-4 w-4" />
           </button>
+          
+          {/* Delete Button */}
           <button
             onClick={onDelete}
             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"

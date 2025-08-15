@@ -77,6 +77,16 @@ export const deleteAlert = async (id: string): Promise<void> => {
   }
 };
 
+export const toggleAlertActive = async (id: string, isActive: boolean): Promise<Alert> => {
+  try {
+    const response = await apiClient.patch<AlertResponse>(`/alerts/${id}/toggle-active`, { isActive });
+    return response.data.data;
+  } catch (error) {
+    console.error('Error toggling alert active state:', error);
+    throw error;
+  }
+};
+
 export const getCurrentAlertStatus = async (): Promise<AlertStatusResponse> => {
   try {
     const response = await apiClient.get<AlertStatusResponse>('/alerts/status/current');

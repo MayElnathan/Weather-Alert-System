@@ -22,11 +22,11 @@ export class CustomError extends Error implements AppError {
 }
 
 export const errorHandler = (
-  error: AppError | ZodError | Prisma.PrismaClientKnownRequestError,
+  error: Error,
   req: Request,
   res: Response,
-  next: NextFunction
-): void => {
+  _next: NextFunction
+) => {
   let statusCode = 500;
   let message = 'Internal Server Error';
   let details: any = null;
@@ -75,9 +75,9 @@ export const errorHandler = (
     message = error.message;
   }
 
-  // Don't leak error details in production
-  if (process.env.NODE_ENV === 'production' && statusCode === 500) {
-    message = 'Internal Server Error';
+  // In production, don't expose internal errors
+  if (process.env['NODE_ENV'] === 'production' && statusCode === 500) {
+    message = 'Internal server error';
     details = null;
   }
 
@@ -88,7 +88,7 @@ export const errorHandler = (
       message,
       statusCode,
       ...(details && { details }),
-      ...(process.env.NODE_ENV === 'development' && { stack: error.stack }),
+      ...(process.env['NODE_ENV'] === 'development' && { stack: error.stack }),
     },
     timestamp: new Date().toISOString(),
     path: req.url,

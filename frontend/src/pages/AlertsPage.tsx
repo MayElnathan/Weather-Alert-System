@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, AlertTriangle, Edit, Trash2, Eye, CheckCircle, XCircle } from 'lucide-react';
-import { getAlerts, createAlert, updateAlert, deleteAlert } from '../services/alertService';
+import { getAlerts, createAlert, updateAlert, deleteAlert, toggleAlertActive } from '../services/alertService';
 import { Alert, CreateAlertData } from '../types/alert';
 import AlertForm from '../components/AlertForm';
 import AlertCard from '../components/AlertCard';
@@ -22,7 +22,7 @@ const AlertsPage = () => {
     error,
   } = useQuery({
     queryKey: ['alerts', filterActive],
-    queryFn: () => getAlerts({ active: filterActive }),
+    queryFn: () => getAlerts({ active: filterActive === null ? undefined : filterActive }),
   });
 
   // Create alert mutation
@@ -69,6 +69,20 @@ const AlertsPage = () => {
     },
   });
 
+  // Toggle alert active state mutation
+  const toggleAlertMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => toggleAlertActive(id, isActive),
+    onSuccess: (_, { isActive }) => {
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+      toast.success(`Alert ${isActive ? 'activated' : 'deactivated'} successfully!`);
+    },
+    onError: error => {
+      toast.error(
+        `Failed to toggle alert: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    },
+  });
+
   const alerts = alertsResponse?.data || [];
 
   const handleCreateAlert = (data: CreateAlertData) => {
@@ -83,6 +97,10 @@ const AlertsPage = () => {
     if (window.confirm('Are you sure you want to delete this alert?')) {
       deleteAlertMutation.mutate(id);
     }
+  };
+
+  const handleToggleActive = (alertId: string, isActive: boolean) => {
+    toggleAlertMutation.mutate({ id: alertId, isActive });
   };
 
   const handleEditAlert = (alert: Alert) => {
@@ -230,6 +248,7 @@ const AlertsPage = () => {
                 alert={alert}
                 onEdit={() => handleEditAlert(alert)}
                 onDelete={() => handleDeleteAlert(alert.id)}
+                onToggleActive={handleToggleActive}
                 operatorSymbol={getOperatorSymbol(alert.operator)}
                 parameterName={getParameterDisplayName(alert.parameter)}
               />
@@ -241,7 +260,10 @@ const AlertsPage = () => {
       {isFormOpen && (
         <AlertForm
           alert={editingAlert}
-          onSubmit={editingAlert ? handleUpdateAlert : handleCreateAlert}
+          onSubmit={editingAlert 
+            ? (data: CreateAlertData) => handleUpdateAlert(editingAlert.id, data)
+            : handleCreateAlert
+          }
           onClose={handleCloseForm}
           isLoading={createAlertMutation.isPending || updateAlertMutation.isPending}
         />

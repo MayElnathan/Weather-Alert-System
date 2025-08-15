@@ -12,27 +12,23 @@ const prisma = new PrismaClient();
 // Create Tomorrow.io service factory function
 const createTomorrowIOService = () => {
   return new TomorrowIOService({
-    apiKey: process.env.TOMORROW_API_KEY || '',
-    baseUrl: process.env.TOMORROW_API_BASE_URL || 'https://api.tomorrow.io/v4',
+    apiKey: process.env['TOMORROW_API_KEY'] || '',
+    baseUrl: process.env['TOMORROW_API_BASE_URL'] || 'https://api.tomorrow.io/v4',
   });
 };
 
-const alertService = new AlertService(prisma, createTomorrowIOService());
+const alertService = new AlertService();
 
 // Validation schemas
 const createAlertSchema = z.object({
-  name: z.string().min(1, 'Alert name is required').max(100, 'Alert name too long'),
+  name: z.string().min(1, 'Name is required'),
   location: z.string().min(1, 'Location is required'),
   parameter: z.string().min(1, 'Parameter is required'),
-  operator: z.enum(['gt', 'gte', 'lt', 'lte', 'eq', 'ne'], {
-    errorMap: () => ({ message: 'Invalid operator. Must be one of: gt, gte, lt, lte, eq, ne' }),
-  }),
-  threshold: z.number().finite('Threshold must be a valid number'),
+  operator: z.enum(['gt', 'gte', 'lt', 'lte', 'eq', 'ne']),
+  threshold: z.number().min(0),
   unit: z.string().min(1, 'Unit is required'),
   description: z.string().optional(),
 });
-
-const updateAlertSchema = createAlertSchema.partial();
 
 const alertIdParamSchema = z.object({
   id: z.string().min(1, 'Alert ID is required'),
@@ -221,17 +217,28 @@ router.get('/:id', async (req: Request, res: Response) => {
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const alertData = createAlertSchema.parse(req.body);
+    const data = createAlertSchema.parse(req.body);
 
-    logger.info('Creating new alert:', { name: alertData.name, location: alertData.location });
+    logger.info('Creating new alert:', { name: data.name, location: data.location });
 
     // Validate that the location can be used with Tomorrow.io API
     try {
       const tomorrowIOService = createTomorrowIOService();
-      await tomorrowIOService.getCurrentWeather(alertData.location);
+      await tomorrowIOService.getCurrentWeather(data.location);
     } catch (error) {
-      throw new CustomError(`Invalid location: ${alertData.location}`, 400);
+      throw new CustomError(`Invalid location: ${data.location}`, 400);
     }
+
+    // Create alert data
+    const alertData = {
+      name: data.name,
+      location: data.location,
+      parameter: data.parameter,
+      operator: data.operator,
+      threshold: data.threshold,
+      unit: data.unit,
+      description: data.description || null, // Convert undefined to null for Prisma
+    };
 
     const alert = await prisma.alert.create({
       data: alertData,
@@ -283,9 +290,9 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = alertIdParamSchema.parse(req.params);
-    const updateData = updateAlertSchema.parse(req.body);
+    const data = createAlertSchema.parse(req.body);
 
-    logger.info('Updating alert:', { alertId: id, updates: updateData });
+    logger.info('Updating alert:', { alertId: id, updates: data });
 
     // Check if alert exists
     const existingAlert = await prisma.alert.findUnique({
@@ -297,16 +304,26 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 
     // If location is being updated, validate it
-    if (updateData.location) {
+    if (data.location) {
       try {
         const tomorrowIOService = createTomorrowIOService();
-        await tomorrowIOService.getCurrentWeather(updateData.location);
+        await tomorrowIOService.getCurrentWeather(data.location);
       } catch (error) {
-        throw new CustomError(`Invalid location: ${updateData.location}`, 400);
+        throw new CustomError(`Invalid location: ${data.location}`, 400);
       }
     }
 
-    const updatedAlert = await prisma.alert.update({
+    // Prepare update data, filtering out undefined values
+    const updateData: any = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.location !== undefined) updateData.location = data.location;
+    if (data.parameter !== undefined) updateData.parameter = data.parameter;
+    if (data.operator !== undefined) updateData.operator = data.operator;
+    if (data.threshold !== undefined) updateData.threshold = data.threshold;
+    if (data.unit !== undefined) updateData.unit = data.unit;
+    if (data.description !== undefined) updateData.description = data.description || null;
+
+    const alert = await prisma.alert.update({
       where: { id },
       data: updateData,
     });
@@ -315,7 +332,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: updatedAlert,
+      data: alert,
       message: 'Alert updated successfully',
     });
   } catch (error) {
@@ -416,18 +433,30 @@ router.delete('/:id', async (req: Request, res: Response) => {
  *                       lastEvaluation:
  *                         type: object
  */
-router.get('/status/current', async (req: Request, res: Response) => {
+router.get('/status/current', async (_req: Request, res: Response) => {
   try {
-    const alertStatus = await alertService.getCurrentAlertStatus();
+    const alerts = await prisma.alert.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        location: true,
+        parameter: true,
+        threshold: true,
+        unit: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
     res.json({
       success: true,
-      data: alertStatus,
-      count: alertStatus.length,
-      triggeredCount: alertStatus.filter(alert => alert.isCurrentlyTriggered).length,
+      data: alerts,
+      count: alerts.length,
     });
   } catch (error) {
-    logger.error('Error fetching alert status:', error);
+    logger.error('Error fetching current alert status:', error);
     throw error;
   }
 });
@@ -475,6 +504,94 @@ router.post('/:id/evaluate', async (req: Request, res: Response) => {
     }
     
     logger.error('Error evaluating alert:', error);
+    throw error;
+  }
+});
+
+/**
+ * @swagger
+ * /api/alerts/{id}/toggle-active:
+ *   patch:
+ *     summary: Toggle alert active state
+ *     description: Update the active state of an alert
+ *     tags: [Alerts]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Alert ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - isActive
+ *             properties:
+ *               isActive:
+ *                 type: boolean
+ *                 description: New active state for the alert
+ *     responses:
+ *       200:
+ *         description: Alert updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/Alert'
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: Alert not found
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/:id/toggle-active', async (req: Request, res: Response) => {
+  try {
+    // Validate request parameters
+    const { id } = alertIdParamSchema.parse(req.params);
+    
+    // Validate request body
+    const { isActive } = req.body;
+    if (typeof isActive !== 'boolean') {
+      throw new CustomError('isActive must be a boolean value', 400);
+    }
+
+    logger.info(`Toggling alert ${id} active state to: ${isActive}`);
+
+    // Update the alert's active state
+    const updatedAlert = await prisma.alert.update({
+      where: { id },
+      data: { 
+        isActive,
+        updatedAt: new Date().toISOString()
+      },
+    });
+
+    logger.info(`Alert ${id} active state updated successfully to: ${isActive}`);
+
+    res.json({
+      success: true,
+      data: updatedAlert,
+      message: `Alert ${isActive ? 'activated' : 'deactivated'} successfully`,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new CustomError('Invalid alert ID', 400);
+    }
+
+    if (error instanceof CustomError) {
+      throw error;
+    }
+
+    logger.error('Error toggling alert active state:', error);
     throw error;
   }
 });

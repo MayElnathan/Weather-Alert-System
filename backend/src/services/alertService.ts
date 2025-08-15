@@ -1,7 +1,9 @@
 import { PrismaClient } from '@prisma/client';
-import { TomorrowIOService, WeatherData } from './tomorrowIOService';
+import { TomorrowIOService } from './tomorrowIOService';
 import { logger } from '../utils/logger';
-import cron from 'node-cron';
+
+// Simple type declaration for node-cron
+const cron: any = require('node-cron');
 
 export interface AlertEvaluationResult {
   alertId: string;
@@ -17,20 +19,21 @@ export interface AlertEvaluationResult {
 export class AlertService {
   private prisma: PrismaClient;
   private tomorrowIOService: TomorrowIOService;
-  private evaluationJob: cron.ScheduledTask | null = null;
+  private evaluationJob: any = null;
 
-  constructor(prisma: PrismaClient, tomorrowIOService: TomorrowIOService) {
-    this.prisma = prisma;
-    this.tomorrowIOService = tomorrowIOService;
+  constructor() {
+    this.prisma = new PrismaClient();
+    this.tomorrowIOService = new TomorrowIOService({
+      apiKey: process.env['TOMORROW_API_KEY'] || '',
+      baseUrl: process.env['TOMORROW_API_BASE_URL'] || 'https://api.tomorrow.io/v4',
+    });
   }
 
   /**
    * Start the alert evaluation service
-   * Runs every 5 minutes by default
    */
-  startEvaluationService(intervalMinutes: number = 5): void {
-    const cronExpression = `*/${intervalMinutes} * * * *`;
-    
+  startEvaluationService(): void {
+    const cronExpression = '*/5 * * * *'; // Every 5 minutes
     this.evaluationJob = cron.schedule(cronExpression, async () => {
       try {
         logger.info('Starting scheduled alert evaluation');
@@ -45,7 +48,7 @@ export class AlertService {
     });
 
     this.evaluationJob.start();
-    logger.info(`Alert evaluation service started with ${intervalMinutes}-minute interval`);
+    logger.info(`Alert evaluation service started with 5-minute interval`);
   }
 
   /**
@@ -142,8 +145,8 @@ export class AlertService {
   /**
    * Get the value of a specific weather parameter
    */
-  private getParameterValue(weatherData: WeatherData, parameter: string): number {
-    const parameterMap: { [key: string]: keyof WeatherData } = {
+  private getParameterValue(weatherData: any, parameter: string): number {
+    const parameterMap: { [key: string]: keyof any } = {
       temperature: 'temperature',
       feelsLike: 'feelsLike',
       humidity: 'humidity',
@@ -161,7 +164,15 @@ export class AlertService {
       throw new Error(`Unknown weather parameter: ${parameter}`);
     }
 
-    return weatherData[field] || 0;
+    const value = weatherData[field];
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
   }
 
   /**
@@ -255,29 +266,4 @@ export class AlertService {
       throw error;
     }
   }
-}
-
-// If this file is run directly, start the alert service
-if (require.main === module) {
-  const { PrismaClient } = require('@prisma/client');
-  const { TomorrowIOService } = require('./tomorrowIOService');
-  
-  const prisma = new PrismaClient();
-  const tomorrowIOService = new TomorrowIOService({
-    apiKey: process.env.TOMORROW_API_KEY || '',
-    baseUrl: process.env.TOMORROW_API_BASE_URL || 'https://api.tomorrow.io/v4',
-  });
-
-  const alertService = new AlertService(prisma, tomorrowIOService);
-  
-  // Start the service
-  alertService.startEvaluationService(5);
-  
-  // Handle graceful shutdown
-  process.on('SIGINT', async () => {
-    logger.info('Shutting down alert service...');
-    alertService.stopEvaluationService();
-    await prisma.$disconnect();
-    process.exit(0);
-  });
 }

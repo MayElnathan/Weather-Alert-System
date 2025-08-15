@@ -9,7 +9,7 @@ class Logger {
   private logLevel: LogLevel;
 
   constructor() {
-    this.logLevel = (process.env.LOG_LEVEL as LogLevel) || LogLevel.INFO;
+    this.logLevel = (process.env['LOG_LEVEL'] as LogLevel) || LogLevel.INFO;
   }
 
   private shouldLog(level: LogLevel): boolean {
