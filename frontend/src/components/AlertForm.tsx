@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -6,6 +6,7 @@ import { X, Save, AlertTriangle } from 'lucide-react';
 import { Alert, CreateAlertData } from '../types/alert';
 import { LocationInfo } from '../services/geolocationService';
 import LocationAutocomplete from './LocationAutocomplete';
+import CustomSelect from './CustomSelect';
 
 const alertSchema = z.object({
   name: z.string().min(1, 'Alert name is required').max(100, 'Alert name too long'),
@@ -57,7 +58,7 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
       setValue('name', alert.name);
       setValue('location', alert.location);
       setValue('parameter', alert.parameter);
-      setValue('operator', alert.operator);
+      setValue('operator', alert.operator as 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'ne');
       setValue('threshold', alert.threshold);
       setValue('unit', alert.unit);
       setValue('description', alert.description || '');
@@ -95,16 +96,16 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
   };
 
   const parameterOptions = [
-    { value: 'temperature', label: 'Temperature', unit: 'celsius' },
-    { value: 'feelsLike', label: 'Feels Like', unit: 'celsius' },
-    { value: 'humidity', label: 'Humidity', unit: '%' },
-    { value: 'windSpeed', label: 'Wind Speed', unit: 'm/s' },
-    { value: 'windDirection', label: 'Wind Direction', unit: 'degrees' },
-    { value: 'precipitation', label: 'Precipitation', unit: 'mm/h' },
-    { value: 'pressure', label: 'Pressure', unit: 'hPa' },
-    { value: 'visibility', label: 'Visibility', unit: 'km' },
-    { value: 'uvIndex', label: 'UV Index', unit: 'index' },
-    { value: 'cloudCover', label: 'Cloud Cover', unit: '%' },
+    { value: 'temperature', label: 'Temperature' },
+    { value: 'feelsLike', label: 'Feels Like' },
+    { value: 'humidity', label: 'Humidity' },
+    { value: 'windSpeed', label: 'Wind Speed' },
+    { value: 'windDirection', label: 'Wind Direction' },
+    { value: 'precipitation', label: 'Precipitation' },
+    { value: 'pressure', label: 'Pressure' },
+    { value: 'visibility', label: 'Visibility' },
+    { value: 'uvIndex', label: 'UV Index' },
+    { value: 'cloudCover', label: 'Cloud Cover' },
   ];
 
   const operatorOptions = [
@@ -117,29 +118,41 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
   ];
 
   const getUnitForParameter = (parameter: string) => {
-    const param = parameterOptions.find(p => p.value === parameter);
-    return param?.unit || '';
+    const unitMap: { [key: string]: string } = {
+      'temperature': 'celsius',
+      'feelsLike': 'celsius',
+      'humidity': '%',
+      'windSpeed': 'm/s',
+      'windDirection': 'degrees',
+      'precipitation': 'mm/h',
+      'pressure': 'hPa',
+      'visibility': 'km',
+      'uvIndex': 'index',
+      'cloudCover': '%',
+    };
+    
+    return unitMap[parameter] || '';
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-[90%] max-w-2xl shadow-lg rounded-md bg-white">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+      <div className="relative top-0 mx-auto p-6 border w-[90%] max-w-2xl shadow-lg rounded-lg bg-white">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-semibold text-gray-900">
             {alert ? 'Edit Alert' : 'Create New Alert'}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-400 hover:text-gray-600 transition-colors"
             disabled={isSubmitting}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-2 flex-1 overflow-y-auto">
           {/* Alert Name */}
-          <div>
+          <div className="form-section">
             <label htmlFor="name" className="form-label">
               Alert Name *
             </label>
@@ -156,7 +169,7 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
           </div>
 
           {/* Location */}
-          <div>
+          <div className="form-section">
             <label htmlFor="location" className="form-label">
               Location *
             </label>
@@ -171,60 +184,71 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
               <p className="mt-1 text-sm text-red-600">{errors.location.message}</p>
             )}
             {selectedLocationCoordinates && (
-              <p className="mt-1 text-xs text-green-600">
+              <p className="mt-2 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
                 ✓ Location coordinates captured: {selectedLocationCoordinates}
               </p>
             )}
           </div>
 
           {/* Parameter */}
-          <div>
+          <div className="form-row">
+          <div className="form-section">
             <label htmlFor="parameter" className="form-label">
               Weather Parameter *
             </label>
-            <select
-              {...register('parameter')}
-              id="parameter"
-              className={`input-field ${errors.parameter ? 'border-red-300' : ''}`}
-              onChange={(e) => {
-                setValue('parameter', e.target.value);
-                setValue('unit', getUnitForParameter(e.target.value));
+            <CustomSelect
+              options={parameterOptions}
+              value={watch('parameter')}
+              onChange={(value) => {
+                setValue('parameter', value);
+                setValue('unit', getUnitForParameter(value));
+                setValue('operator', value as 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'ne');
               }}
-            >
-              {parameterOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              placeholder="Select a parameter"
+              error={!!errors.parameter}
+            />
             {errors.parameter && (
               <p className="mt-1 text-sm text-red-600">{errors.parameter.message}</p>
             )}
           </div>
+          
+          {/* Unit */}
+          <div className="form-section">
+            <label htmlFor="unit" className="form-label">
+              Unit *
+            </label>
+            <input
+              {...register('unit')}
+              type="text"
+              id="unit"
+              className={`input-field ${errors.unit ? 'border-red-300' : ''}`}
+              placeholder="e.g., celsius, m/s, %"
+            />
+            {errors.unit && (
+              <p className="mt-1 text-sm text-red-600">{errors.unit.message}</p>
+            )}
+          </div>
+          </div>
 
           {/* Operator and Threshold */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          <div className="form-row">
+            <div className="form-section">
               <label htmlFor="operator" className="form-label">
                 Operator *
               </label>
-              <select
-                {...register('operator')}
-                id="operator"
-                className={`input-field ${errors.operator ? 'border-red-300' : ''}`}
-              >
-                {operatorOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              <CustomSelect
+                options={operatorOptions}
+                value={watch('operator')}
+                onChange={(value) => setValue('operator', value as 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'ne')}
+                placeholder="Select an operator"
+                error={!!errors.operator}
+              />
               {errors.operator && (
                 <p className="mt-1 text-sm text-red-600">{errors.operator.message}</p>
               )}
             </div>
 
-            <div>
+            <div className="form-section">
               <label htmlFor="threshold" className="form-label">
                 Threshold *
               </label>
@@ -243,24 +267,9 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
           </div>
 
           {/* Unit */}
-          <div>
-            <label htmlFor="unit" className="form-label">
-              Unit *
-            </label>
-            <input
-              {...register('unit')}
-              type="text"
-              id="unit"
-              className={`input-field ${errors.unit ? 'border-red-300' : ''}`}
-              placeholder="e.g., celsius, m/s, %"
-            />
-            {errors.unit && (
-              <p className="mt-1 text-sm text-red-600">{errors.unit.message}</p>
-            )}
-          </div>
 
           {/* Description */}
-          <div>
+          <div className="form-section">
             <label htmlFor="description" className="form-label">
               Description
             </label>
@@ -268,13 +277,13 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
               {...register('description')}
               id="description"
               rows={3}
-              className="input-field"
+              className="input-field resize-none"
               placeholder="Optional description of the alert"
             />
           </div>
 
           {/* Submit Button */}
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-6 mt-6">
             <button
               type="button"
               onClick={onClose}

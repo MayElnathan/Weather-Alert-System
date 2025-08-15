@@ -111,14 +111,14 @@ const Layout = ({ children }: LayoutProps) => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 py-16">
+      <main className="max-w-7xl mx-auto sm:px-6 lg:px-8 py-16">
         <div className="px-4 py-6 sm:px-0">
           {children}
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-auto fixed bottom-0 left-0 right-0 z-50">
+      <footer className="bg-white border-t border-gray-200 mt-auto fixed bottom-0 left-0 right-0 z-40">
         <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
           <div className="text-center text-sm text-gray-500">
             <p>Weather Alert System - Powered by Tomorrow.io API</p>

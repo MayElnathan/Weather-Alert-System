@@ -28,11 +28,19 @@
   }
   
   .input-field {
-    @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
+    @apply block w-full px-3 py-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-0 shadow-sm;
   }
   
   .form-label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-semibold text-gray-700 mb-2;
+  }
+  
+  .form-section {
+    @apply space-y-1;
+  }
+  
+  .form-row {
+    @apply grid grid-cols-2 gap-4;
   }
 }
 
