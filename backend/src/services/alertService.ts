@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import { TomorrowIOService } from './tomorrowIOService';
+import { Alert, PrismaClient } from '@prisma/client';
+import { createTomorrowIOService, TomorrowIOService } from './tomorrowIOService';
 import { logger } from '../utils/logger';
 
 // Simple type declaration for node-cron
@@ -23,10 +23,7 @@ export class AlertService {
 
   constructor() {
     this.prisma = new PrismaClient();
-    this.tomorrowIOService = new TomorrowIOService({
-      apiKey: process.env['TOMORROW_API_KEY'] || '',
-      baseUrl: process.env['TOMORROW_API_BASE_URL'] || 'https://api.tomorrow.io/v4',
-    });
+    this.tomorrowIOService = createTomorrowIOService();
   }
 
   /**
@@ -34,18 +31,22 @@ export class AlertService {
    */
   startEvaluationService(): void {
     const cronExpression = '*/5 * * * *'; // Every 5 minutes
-    this.evaluationJob = cron.schedule(cronExpression, async () => {
-      try {
-        logger.info('Starting scheduled alert evaluation');
-        await this.evaluateAllAlerts();
-        logger.info('Completed scheduled alert evaluation');
-      } catch (error) {
-        logger.error('Error during scheduled alert evaluation:', error);
+    this.evaluationJob = cron.schedule(
+      cronExpression,
+      async () => {
+        try {
+          logger.info('Starting scheduled alert evaluation');
+          await this.evaluateAllAlerts();
+          logger.info('Completed scheduled alert evaluation');
+        } catch (error) {
+          logger.error('Error during scheduled alert evaluation:', error);
+        }
+      },
+      {
+        scheduled: false,
+        timezone: 'UTC',
       }
-    }, {
-      scheduled: false,
-      timezone: 'UTC',
-    });
+    );
 
     this.evaluationJob.start();
     logger.info(`Alert evaluation service started with 5-minute interval`);
@@ -65,7 +66,7 @@ export class AlertService {
   /**
    * Evaluate all active alerts
    */
-  async evaluateAllAlerts(): Promise<AlertEvaluationResult[]> {
+  async evaluateAllAlerts(): Promise<void> {
     try {
       // Get all active alerts
       const activeAlerts = await this.prisma.alert.findMany({
@@ -74,22 +75,19 @@ export class AlertService {
 
       if (activeAlerts.length === 0) {
         logger.info('No active alerts to evaluate');
-        return [];
+        return;
       }
 
       logger.info(`Evaluating ${activeAlerts.length} active alerts`);
-
-      const results: AlertEvaluationResult[] = [];
 
       // Evaluate each alert
       for (const alert of activeAlerts) {
         try {
           const result = await this.evaluateAlert(alert);
-          results.push(result);
-          
+
           // Save evaluation result to database
           await this.saveAlertEvaluation(result);
-          
+
           logger.debug(`Alert evaluation completed for ${alert.name}:`, {
             alertId: alert.id,
             isTriggered: result.isTriggered,
@@ -101,7 +99,6 @@ export class AlertService {
         }
       }
 
-      return results;
     } catch (error) {
       logger.error('Failed to evaluate all alerts:', error);
       throw error;
@@ -115,16 +112,12 @@ export class AlertService {
     try {
       // Fetch current weather data for the alert location
       const weatherData = await this.tomorrowIOService.getCurrentWeather(alert.location);
-      
+
       // Get the current value for the monitored parameter
       const currentValue = this.getParameterValue(weatherData, alert.parameter);
-      
+
       // Evaluate the condition
-      const isTriggered = this.evaluateCondition(
-        currentValue,
-        alert.operator,
-        alert.threshold
-      );
+      const isTriggered = this.evaluateCondition(currentValue, alert.operator, alert.threshold);
 
       return {
         alertId: alert.id,
@@ -216,38 +209,6 @@ export class AlertService {
   }
 
   /**
-   * Get current alert status for all alerts
-   */
-  async getCurrentAlertStatus(): Promise<any[]> {
-    try {
-      const alerts = await this.prisma.alert.findMany({
-        where: { isActive: true },
-        include: {
-          alertHistory: {
-            orderBy: { timestamp: 'desc' },
-            take: 1,
-          },
-        },
-      });
-
-      return alerts.map(alert => ({
-        id: alert.id,
-        name: alert.name,
-        location: alert.location,
-        parameter: alert.parameter,
-        threshold: alert.threshold,
-        unit: alert.unit,
-        isActive: alert.isActive,
-        lastEvaluation: alert.alertHistory[0] || null,
-        isCurrentlyTriggered: alert.alertHistory[0]?.isTriggered || false,
-      }));
-    } catch (error) {
-      logger.error('Failed to get current alert status:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Manually trigger alert evaluation for a specific alert
    */
   async evaluateSpecificAlert(alertId: string): Promise<AlertEvaluationResult | null> {
@@ -266,4 +227,30 @@ export class AlertService {
       throw error;
     }
   }
+
+  async getAlerts(active?: string, location?: string): Promise<Alert[]> {
+    // Build where clause
+    const where: any = {};
+    if (active !== undefined) {
+      where.isActive = active === 'true';
+    }
+    if (location) {
+      where.location = { contains: location as string, mode: 'insensitive' };
+    }
+
+    const alerts = await this.prisma.alert.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        alertHistory: {
+          orderBy: { timestamp: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    return alerts;
+  }
+
+  
 }

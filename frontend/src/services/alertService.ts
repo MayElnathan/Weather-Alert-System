@@ -61,7 +61,7 @@ export const createAlert = async (data: CreateAlertData): Promise<Alert> => {
 
 export const updateAlert = async ({ id, data }: UpdateAlertData): Promise<Alert> => {
   try {
-    const response = await apiClient.put<AlertResponse>(`/alerts/${id}`, data);
+    const response = await apiClient.patch<AlertResponse>(`/alerts/${id}`, data);
     return response.data.data;
   } catch (error) {
     console.error('Error updating alert:', error);
@@ -80,8 +80,7 @@ export const deleteAlert = async (id: string): Promise<void> => {
 
 export const toggleAlertActive = async (id: string, isActive: boolean): Promise<Alert> => {
   try {
-    const response = await apiClient.patch<AlertResponse>(`/alerts/${id}/toggle-active`, { isActive });
-    return response.data.data;
+    return await updateAlert({ id, data: { isActive: !isActive } });
   } catch (error) {
     console.error('Error toggling alert active state:', error);
     throw error;
@@ -90,20 +89,10 @@ export const toggleAlertActive = async (id: string, isActive: boolean): Promise<
 
 export const getCurrentAlertStatus = async (): Promise<AlertStatusResponse> => {
   try {
-    const response = await apiClient.get<AlertStatusResponse>('/alerts/status/current');
+    const response = await apiClient.get<AlertStatusResponse>('/alerts', { params: { active: true } });
     return response.data;
   } catch (error) {
     console.error('Error fetching alert status:', error);
-    throw error;
-  }
-};
-
-export const evaluateAlert = async (id: string): Promise<any> => {
-  try {
-    const response = await apiClient.post(`/alerts/${id}/evaluate`);
-    return response.data;
-  } catch (error) {
-    console.error('Error evaluating alert:', error);
     throw error;
   }
 };

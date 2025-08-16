@@ -1,15 +1,16 @@
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  ttl: number;
-}
+import NodeCache from 'node-cache';
 
 export class SimpleCache<T> {
-  private cache: Map<string, CacheEntry<T>> = new Map();
+  private cache: NodeCache;
   private defaultTTL: number;
 
   constructor(defaultTTL: number = 5 * 60 * 1000) { // 5 minutes default
     this.defaultTTL = defaultTTL;
+    this.cache = new NodeCache({
+      stdTTL: defaultTTL / 1000, // Convert to seconds for node-cache
+      checkperiod: 60, // Check for expired keys every 60 seconds
+      useClones: false, // Don't clone objects for better performance
+    });
   }
 
   /**
@@ -18,19 +19,7 @@ export class SimpleCache<T> {
    * @returns Cached value or null if not found/expired
    */
   get(key: string): T | null {
-    const entry = this.cache.get(key);
-    
-    if (!entry) {
-      return null;
-    }
-
-    // Check if entry has expired
-    if (Date.now() > entry.timestamp + entry.ttl) {
-      this.cache.delete(key);
-      return null;
-    }
-
-    return entry.data;
+    return this.cache.get(key) || null;
   }
 
   /**
@@ -40,13 +29,8 @@ export class SimpleCache<T> {
    * @param ttl - Time to live in milliseconds (optional, uses default if not provided)
    */
   set(key: string, data: T, ttl?: number): void {
-    const entry: CacheEntry<T> = {
-      data,
-      timestamp: Date.now(),
-      ttl: ttl || this.defaultTTL,
-    };
-
-    this.cache.set(key, entry);
+    const ttlSeconds = (ttl || this.defaultTTL) / 1000; // Convert to seconds
+    this.cache.set(key, data, ttlSeconds);
   }
 
   /**
@@ -55,7 +39,7 @@ export class SimpleCache<T> {
    * @returns True if key exists and is valid
    */
   has(key: string): boolean {
-    return this.get(key) !== null;
+    return this.cache.has(key);
   }
 
   /**
@@ -63,26 +47,22 @@ export class SimpleCache<T> {
    * @param key - Cache key
    */
   delete(key: string): void {
-    this.cache.delete(key);
+    this.cache.del(key);
   }
 
   /**
    * Clear all expired entries
    */
   cleanup(): void {
-    const now = Date.now();
-    for (const [key, entry] of this.cache.entries()) {
-      if (now > entry.timestamp + entry.ttl) {
-        this.cache.delete(key);
-      }
-    }
+    // node-cache handles cleanup automatically, but we can flush expired keys
+    this.cache.flushAll();
   }
 
   /**
    * Clear all entries
    */
   clear(): void {
-    this.cache.clear();
+    this.cache.flushAll();
   }
 
   /**
@@ -90,7 +70,7 @@ export class SimpleCache<T> {
    * @returns Number of entries in cache
    */
   size(): number {
-    return this.cache.size;
+    return this.cache.keys().length;
   }
 
   /**
@@ -103,9 +83,9 @@ export class SimpleCache<T> {
     keys: string[];
   } {
     return {
-      size: this.cache.size,
+      size: this.cache.keys().length,
       defaultTTL: this.defaultTTL,
-      keys: Array.from(this.cache.keys()),
+      keys: this.cache.keys(),
     };
   }
 }

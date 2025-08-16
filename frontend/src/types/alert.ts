@@ -22,6 +22,7 @@ export interface CreateAlertData {
   threshold: number;
   unit: string;
   description?: string;
+  isActive?: boolean
 }
 
 export interface UpdateAlertData {
@@ -38,9 +39,9 @@ export interface AlertHistory {
   timestamp: string;
 }
 
-export interface AlertWithHistory extends Alert {
-  alertHistory: AlertHistory[];
-}
+// export interface AlertWithHistory extends Alert {
+//   alertHistory: AlertHistory[];
+// }
 
 export interface AlertStatus {
   id: string;
@@ -53,7 +54,7 @@ export interface AlertStatus {
   unit: string;
   description?: string; // Add description field
   isActive: boolean;
-  lastEvaluation: AlertHistory | null;
+  alertHistory: AlertHistory[];
   isCurrentlyTriggered: boolean;
 }
 

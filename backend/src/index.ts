@@ -8,7 +8,7 @@ import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import dotenv from 'dotenv';
 
-import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { errorHandler } from './middleware/errorHandler';
 import weatherRoutes from './routes/weatherRoutes';
 import alertRoutes from './routes/alertRoutes';
 import { logger } from './utils/logger';
@@ -30,7 +30,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: `http://localhost:${PORT}/api`,
+        url: `http://localhost:${PORT}`,
         description: 'Development server',
       },
     ],
@@ -69,7 +69,6 @@ app.use('/api/weather', weatherRoutes);
 app.use('/api/alerts', alertRoutes);
 
 // Error handling middleware
-app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Start server
@@ -77,17 +76,6 @@ app.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
   logger.info(`📚 API Documentation available at http://localhost:${PORT}/api/docs`);
   logger.info(`🏥 Health check available at http://localhost:${PORT}/health`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-  process.exit(0);
-});
-
-process.on('SIGINT', () => {
-  logger.info('SIGINT received, shutting down gracefully');
-  process.exit(0);
 });
 
 export default app;

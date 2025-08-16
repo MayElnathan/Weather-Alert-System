@@ -31,7 +31,7 @@ const CurrentStatePage = () => {
   });
 
   const alertStatus = alertStatusResponse?.data || [];
-  const triggeredCount = alertStatusResponse?.triggeredCount || 0;
+  const triggeredCount = alertStatus.filter(alert => alert.alertHistory?.[0]?.isTriggered).length || 0;
   const totalCount = alertStatusResponse?.count || 0;
 
   const getParameterIcon = (parameter: string) => {
@@ -160,7 +160,7 @@ const CurrentStatePage = () => {
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {alertStatus
-              .filter(alert => alert.isCurrentlyTriggered)
+              .filter(alert => alert.alertHistory?.[0]?.isTriggered)
               .map((alert) => (
                 <div
                   key={alert.id}
@@ -180,11 +180,11 @@ const CurrentStatePage = () => {
                             {getParameterDisplayName(alert.parameter)} {getOperatorSymbol(alert.operator)} {alert.threshold} {alert.unit}
                           </span>
                         </div>
-                        {alert.lastEvaluation && (
+                        {alert.alertHistory.length > 0 && (
                           <div className="flex items-center text-red-600">
                             <Clock className="h-4 w-4 mr-2" />
                             <span>
-                              Last evaluated {formatDistanceToNow(new Date(alert.lastEvaluation.timestamp), { addSuffix: true })}
+                              Last evaluated {formatDistanceToNow(new Date(alert.alertHistory[0].timestamp), { addSuffix: true })}
                             </span>
                           </div>
                         )}
@@ -253,7 +253,7 @@ const CurrentStatePage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {alert.isCurrentlyTriggered ? (
+                      {alert.alertHistory?.[0]?.isTriggered ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                           <AlertTriangle className="h-3 w-3 mr-1" />
                           Triggered
@@ -266,10 +266,10 @@ const CurrentStatePage = () => {
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {alert.lastEvaluation ? (
+                      {alert.alertHistory.length > 0 ? (
                         <div className="flex items-center">
                           <Clock className="h-4 w-4 mr-1" />
-                          {formatDistanceToNow(new Date(alert.lastEvaluation.timestamp), { addSuffix: true })}
+                          {formatDistanceToNow(new Date(alert.alertHistory[0].timestamp), { addSuffix: true })}
                         </div>
                       ) : (
                         'Never'

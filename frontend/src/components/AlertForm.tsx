@@ -229,6 +229,7 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
               id="unit"
               className={`input-field ${errors.unit ? 'border-red-300' : ''}`}
               placeholder="e.g., celsius, m/s, %"
+              disabled={true}
             />
             {errors.unit && (
               <p className="mt-1 text-sm text-red-600">{errors.unit.message}</p>
