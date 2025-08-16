@@ -1,0 +1,131 @@
+version: '3.8'
+
+services:
+  # Frontend service
+  frontend:
+    build:
+      context: ..
+      dockerfile: deployments/frontend.dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - weather-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Prisma migration service
+  prisma-migrate:
+    build:
+      context: ..
+      dockerfile: deployments/backend.dockerfile
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:password@postgres:5432/weather_alerts}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - weather-network
+    restart: "no"
+    command: >
+      sh -c "
+        echo 'Waiting for database to be fully ready...' &&
+        sleep 10 &&
+        echo 'Running Prisma migrations...' &&
+        npx prisma migrate deploy &&
+        echo 'Migrations completed successfully' &&
+        npx prisma generate &&
+        echo 'Prisma client generated successfully'
+      "
+
+  # Backend API service
+  backend:
+    build:
+      context: ..
+      dockerfile: deployments/backend.dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:password@postgres:5432/weather_alerts}
+      - TOMORROW_API_KEY=${TOMORROW_API_KEY}
+      - TOMORROW_API_BASE_URL=${TOMORROW_API_BASE_URL:-https://api.tomorrow.io/v4}
+      - PORT=${PORT:-3001}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      prisma-migrate:
+        condition: service_completed_successfully
+    networks:
+      - weather-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Alert Cron service
+  alert-cron:
+    build:
+      context: ..
+      dockerfile: deployments/alert-cron.dockerfile
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:password@postgres:5432/weather_alerts}
+      - TOMORROW_API_KEY=${TOMORROW_API_KEY}
+      - TOMORROW_API_BASE_URL=${TOMORROW_API_BASE_URL:-https://api.tomorrow.io/v4}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - weather-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "console.log('Alert cron service is running')"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-weather_alerts}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../backend/prisma/migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - weather-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-weather_alerts}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  weather-network:
+    driver: bridge

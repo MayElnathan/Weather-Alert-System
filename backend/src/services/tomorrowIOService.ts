@@ -35,7 +35,6 @@ export const createTomorrowIOService = () => {
 export class TomorrowIOService {
   private client: AxiosInstance;
   private config: TomorrowIOConfig;
-  private geocodingService: GeocodingService;
 
   constructor(config: TomorrowIOConfig) {
     this.config = config;
@@ -47,7 +46,6 @@ export class TomorrowIOService {
         'Content-Type': 'application/json',
       },
     });
-    this.geocodingService = new GeocodingService();
   }
 
   /**

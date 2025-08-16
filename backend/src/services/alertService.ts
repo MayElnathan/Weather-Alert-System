@@ -49,6 +49,9 @@ export class AlertService {
     );
 
     this.evaluationJob.start();
+    this.evaluateAllAlerts().catch((error: any) => {
+      logger.error('Error during initial alert evaluation:', error);
+    });
     logger.info(`Alert evaluation service started with 5-minute interval`);
   }
 
