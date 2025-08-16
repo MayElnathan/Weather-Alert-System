@@ -23,6 +23,7 @@ const alertService = new AlertService();
 const createAlertSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   location: z.string().min(1, 'Location is required'),
+  locationName: z.string().optional(), // Optional human-readable location name
   parameter: z.string().min(1, 'Parameter is required'),
   operator: z.enum(['gt', 'gte', 'lt', 'lte', 'eq', 'ne']),
   threshold: z.number().min(0),
@@ -233,6 +234,7 @@ router.post('/', async (req: Request, res: Response) => {
     const alertData = {
       name: data.name,
       location: data.location,
+      locationName: data.locationName || data.location, // Use locationName if provided, fallback to location
       parameter: data.parameter,
       operator: data.operator,
       threshold: data.threshold,
@@ -317,6 +319,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     const updateData: any = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.location !== undefined) updateData.location = data.location;
+    if (data.locationName !== undefined) updateData.locationName = data.locationName;
     if (data.parameter !== undefined) updateData.parameter = data.parameter;
     if (data.operator !== undefined) updateData.operator = data.operator;
     if (data.threshold !== undefined) updateData.threshold = data.threshold;
@@ -441,9 +444,12 @@ router.get('/status/current', async (_req: Request, res: Response) => {
         id: true,
         name: true,
         location: true,
+        locationName: true, // Add locationName for human-readable display
         parameter: true,
+        operator: true, // Add operator for condition display
         threshold: true,
         unit: true,
+        description: true, // Add description for better context
         isActive: true,
         createdAt: true,
         updatedAt: true,

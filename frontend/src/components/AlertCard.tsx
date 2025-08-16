@@ -109,7 +109,7 @@ const AlertCard = ({ alert, onEdit, onDelete, onToggleActive, operatorSymbol, pa
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">Location</span>
-          <span className="text-sm font-medium text-gray-900">{alert.location}</span>
+          <span className="text-sm font-medium text-gray-900">{alert.locationName || alert.location}</span>
         </div>
 
         <div className="flex items-center justify-between">

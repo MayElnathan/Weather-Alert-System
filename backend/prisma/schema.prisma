@@ -13,7 +13,8 @@ datasource db {
 model Alert {
   id          String   @id @default(cuid())
   name        String
-  location    String
+  location    String   // Coordinates (e.g., "40.7128,-74.0060")
+  locationName String  // Human-readable location name (e.g., "New York, NY")
   parameter   String   // temperature, windSpeed, precipitation, etc.
   operator    String   // gt, lt, gte, lte, eq, ne
   threshold   Float

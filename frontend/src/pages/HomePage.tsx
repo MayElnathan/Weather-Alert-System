@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Thermometer, Wind, Droplets, Eye, Cloud, Sun, MapPin, RefreshCw } from 'lucide-react';
+import { Thermometer, Wind, Droplets, Eye, Cloud, Sun, RefreshCw } from 'lucide-react';
 import { getCurrentWeather } from '../services/weatherService';
-import { WeatherData } from '../types/weather';
-import { LocationInfo } from '../services/geolocationService';
 import WeatherCard from '../components/WeatherCard';
 import HomeLocationSelector from '../components/HomeLocationSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -12,9 +10,7 @@ const HomePage = () => {
   const [selectedLocation, setSelectedLocation] = useState('Tel Aviv, Israel');
   const [locationDisplayName, setLocationDisplayName] = useState('Tel Aviv, Israel');
   const [isCoordinateLocation, setIsCoordinateLocation] = useState(false);
-  const [currentLocationInfo, setCurrentLocationInfo] = useState<LocationInfo | null>(null);
-
-
+  const [currentLocationInfo, setCurrentLocationInfo] = useState<any | null>(null);
 
   // Fetch current weather data
   const {
@@ -35,7 +31,7 @@ const HomePage = () => {
   useEffect(() => {
     if (weatherData && weatherData.location) {
       setLocationDisplayName(weatherData.location);
-      
+
       // If we have coordinates and location data, create LocationInfo for the selector
       if (weatherData.coordinates && isCoordinateLocation) {
         setCurrentLocationInfo({
@@ -52,7 +48,7 @@ const HomePage = () => {
     // Check if the location is coordinates
     const coordMatch = location.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/);
     setIsCoordinateLocation(!!coordMatch);
-    
+
     // If it's coordinates, we need to get the display name
     if (coordMatch) {
       // For coordinates, keep the current display name until we get the new one
@@ -120,23 +116,19 @@ const HomePage = () => {
       </div>
 
       {/* Location Selector */}
-      <div className="flex justify-center">
+      <div className="flex justify-center items-center gap-4">
         <HomeLocationSelector
           selectedLocation={selectedLocation}
           onLocationChange={handleLocationChange}
           currentLocationInfo={currentLocationInfo}
         />
-      </div>
-
-      {/* Refresh Button */}
-      <div className="flex justify-center">
+        {/* Refresh Button */}
         <button
           onClick={handleRefresh}
           disabled={isRefetching}
-          className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center p-[14px] border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed mt-auto"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
-          {isRefetching ? 'Refreshing...' : 'Refresh Weather'}
+          <RefreshCw className={`h-5 w-5 ${isRefetching ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -147,25 +139,31 @@ const HomePage = () => {
           <WeatherCard title="Current Conditions" className="lg:col-span-2">
             <div className="text-center">
               <div className="flex justify-center items-center mb-4">
-                {getWeatherIcon(weatherData.weatherCode)}
+                {weatherData.weatherCode !== undefined
+                  ? getWeatherIcon(weatherData.weatherCode)
+                  : getWeatherIcon(0)}
                 <div className="ml-4">
                   <h3 className="text-2xl font-semibold text-gray-900">
-                    {weatherData.weatherDescription}
+                    {weatherData.weatherDescription || 'Unknown'}
                   </h3>
-                  <p className="text-gray-600">
-                    {locationDisplayName}
-                  </p>
+                  <p className="text-gray-600">{locationDisplayName}</p>
                 </div>
               </div>
 
               <div className="text-6xl font-bold text-gray-900 mb-2">
-                {Math.round(weatherData.temperature)}°C
+                {weatherData.temperature !== undefined ? Math.round(weatherData.temperature) : 0}°C
               </div>
 
-              <p className="text-gray-600 mb-4">Feels like {Math.round(weatherData.feelsLike)}°C</p>
+              <p className="text-gray-600 mb-4">
+                Feels like{' '}
+                {weatherData.feelsLike !== undefined ? Math.round(weatherData.feelsLike) : 0}°C
+              </p>
 
               <p className="text-sm text-gray-500">
-                Last updated: {new Date(weatherData.timestamp).toLocaleString()}
+                Last updated:{' '}
+                {weatherData.timestamp
+                  ? new Date(weatherData.timestamp).toLocaleString()
+                  : 'Unknown'}
               </p>
             </div>
           </WeatherCard>
@@ -178,7 +176,10 @@ const HomePage = () => {
                   <Thermometer className="h-5 w-5 text-red-500 mr-2" />
                   <span className="text-gray-700">Temperature</span>
                 </div>
-                <span className="font-semibold">{Math.round(weatherData.temperature)}°C</span>
+                <span className="font-semibold">
+                  {weatherData.temperature !== undefined ? Math.round(weatherData.temperature) : 0}
+                  °C
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -186,7 +187,9 @@ const HomePage = () => {
                   <Thermometer className="h-5 w-5 text-orange-500 mr-2" />
                   <span className="text-gray-700">Feels Like</span>
                 </div>
-                <span className="font-semibold">{Math.round(weatherData.feelsLike)}°C</span>
+                <span className="font-semibold">
+                  {weatherData.feelsLike !== undefined ? Math.round(weatherData.feelsLike) : 0}°C
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -194,7 +197,9 @@ const HomePage = () => {
                   <Droplets className="h-5 w-5 text-blue-500 mr-2" />
                   <span className="text-gray-700">Humidity</span>
                 </div>
-                <span className="font-semibold">{Math.round(weatherData.humidity)}%</span>
+                <span className="font-semibold">
+                  {weatherData.humidity !== undefined ? Math.round(weatherData.humidity) : 0}%
+                </span>
               </div>
             </div>
           </WeatherCard>
@@ -207,7 +212,9 @@ const HomePage = () => {
                   <Wind className="h-5 w-5 text-gray-500 mr-2" />
                   <span className="text-gray-700">Wind Speed</span>
                 </div>
-                <span className="font-semibold">{Math.round(weatherData.windSpeed)} m/s</span>
+                <span className="font-semibold">
+                  {weatherData.windSpeed !== undefined ? Math.round(weatherData.windSpeed) : 0} m/s
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -215,7 +222,12 @@ const HomePage = () => {
                   <Wind className="h-5 w-5 text-gray-500 mr-2" />
                   <span className="text-gray-700">Wind Direction</span>
                 </div>
-                <span className="font-semibold">{Math.round(weatherData.windDirection)}°</span>
+                <span className="font-semibold">
+                  {weatherData.windDirection !== undefined
+                    ? Math.round(weatherData.windDirection)
+                    : 0}
+                  °
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -223,7 +235,9 @@ const HomePage = () => {
                   <Eye className="h-5 w-5 text-blue-500 mr-2" />
                   <span className="text-gray-700">Visibility</span>
                 </div>
-                <span className="font-semibold">{Math.round(weatherData.visibility)} km</span>
+                <span className="font-semibold">
+                  {weatherData.visibility !== undefined ? Math.round(weatherData.visibility) : 0} km
+                </span>
               </div>
             </div>
           </WeatherCard>
@@ -236,7 +250,12 @@ const HomePage = () => {
                   <Droplets className="h-5 w-5 text-blue-500 mr-2" />
                   <span className="text-gray-700">Precipitation</span>
                 </div>
-                <span className="font-semibold">{weatherData.precipitation.toFixed(1)} mm/h</span>
+                <span className="font-semibold">
+                  {weatherData.precipitation !== undefined
+                    ? weatherData.precipitation.toFixed(1)
+                    : '0.0'}{' '}
+                  mm/h
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -244,7 +263,9 @@ const HomePage = () => {
                   <Cloud className="h-5 w-5 text-gray-500 mr-2" />
                   <span className="text-gray-700">Cloud Cover</span>
                 </div>
-                <span className="font-semibold">{Math.round(weatherData.cloudCover)}%</span>
+                <span className="font-semibold">
+                  {weatherData.cloudCover !== undefined ? Math.round(weatherData.cloudCover) : 0}%
+                </span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -252,7 +273,9 @@ const HomePage = () => {
                   <Sun className="h-5 w-5 text-yellow-500 mr-2" />
                   <span className="text-gray-700">UV Index</span>
                 </div>
-                <span className="font-semibold">{Math.round(weatherData.uvIndex)}</span>
+                <span className="font-semibold">
+                  {weatherData.uvIndex !== undefined ? Math.round(weatherData.uvIndex) : 0}
+                </span>
               </div>
             </div>
           </WeatherCard>

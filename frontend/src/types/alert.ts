@@ -1,7 +1,8 @@
 export interface Alert {
   id: string;
   name: string;
-  location: string;
+  location: string; // Coordinates (e.g., "40.7128,-74.0060")
+  locationName: string; // Human-readable location name (e.g., "New York, NY")
   parameter: string;
   operator: string;
   threshold: number;
@@ -14,7 +15,8 @@ export interface Alert {
 
 export interface CreateAlertData {
   name: string;
-  location: string;
+  location: string; // Coordinates
+  locationName?: string; // Optional human-readable name
   parameter: string;
   operator: string;
   threshold: number;
@@ -44,9 +46,12 @@ export interface AlertStatus {
   id: string;
   name: string;
   location: string;
+  locationName?: string; // Add locationName for consistency
   parameter: string;
+  operator: string; // Add operator field
   threshold: number;
   unit: string;
+  description?: string; // Add description field
   isActive: boolean;
   lastEvaluation: AlertHistory | null;
   isCurrentlyTriggered: boolean;

@@ -132,13 +132,13 @@ const HomeLocationSelector = ({
   };
 
   return (
-    <div className="relative">
+    <div className="relative w-full md:w-96">
       {/* Current Location Display */}
       <div className="mt-2 text-center">
-        <span className="text-sm text-gray-600">Current: {getDisplayText()}</span>
+        <span className="text-lg text-gray-600">Current: {getDisplayText()}</span>
       </div>
 
-      <div className="relative flex items-center bg-white rounded-lg border border-gray-200">
+      <div className="relative flex items-center bg-white rounded-lg border border-gray-200 w-full md:w-96">
         {/* Search Icon */}
         <Search className="ml-3 h-4 w-4 text-gray-500" />
 

@@ -1,15 +1,8 @@
 import axios from 'axios';
-import { 
-  WeatherData, 
-  WeatherForecast, 
-  Location, 
-  WeatherParameter,
-  WeatherResponse,
-  LocationsResponse,
-  ParametersResponse
-} from '../types/weather';
+import { WeatherData } from '../types/weather';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+// API configuration
+const API_BASE_URL = (typeof window !== 'undefined' && (window as any).__VITE_API_BASE_URL) || 'http://localhost:3001/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -31,19 +24,25 @@ apiClient.interceptors.response.use(
 
 export const getCurrentWeather = async (location: string): Promise<WeatherData & { coordinates?: string }> => {
   try {
-    const response = await apiClient.get<WeatherResponse & { coordinates?: string }>(`/weather/current/${encodeURIComponent(location)}`);
-    return {
-      ...response.data.data,
-      location: response.data.location,
-      coordinates: response.data.coordinates,
-    };
+    const response = await apiClient.get<any>(`/weather/current/${encodeURIComponent(location)}`);
+    
+    // The backend returns { success: true, data: { ...weatherData }, ... }
+    if (response.data.success && response.data.data) {
+      return {
+        ...response.data.data,
+        location: response.data.location,
+        coordinates: response.data.coordinates,
+      };
+    } else {
+      throw new Error('Invalid response format from weather API');
+    }
   } catch (error) {
     console.error('Error fetching current weather:', error);
     throw error;
   }
 };
 
-export const getWeatherForecast = async (location: string, timesteps: string = '1h'): Promise<WeatherForecast> => {
+export const getWeatherForecast = async (location: string, timesteps: string = '1h'): Promise<any> => {
   try {
     const response = await apiClient.get(`/weather/forecast/${encodeURIComponent(location)}`, {
       params: { timesteps },
@@ -55,9 +54,9 @@ export const getWeatherForecast = async (location: string, timesteps: string = '
   }
 };
 
-export const getSupportedLocations = async (): Promise<LocationsResponse> => {
+export const getSupportedLocations = async (): Promise<any> => {
   try {
-    const response = await apiClient.get<LocationsResponse>('/weather/locations');
+    const response = await apiClient.get<any>('/weather/locations');
     return response.data;
   } catch (error) {
     console.error('Error fetching supported locations:', error);
@@ -65,9 +64,9 @@ export const getSupportedLocations = async (): Promise<LocationsResponse> => {
   }
 };
 
-export const getWeatherParameters = async (): Promise<ParametersResponse> => {
+export const getWeatherParameters = async (): Promise<any> => {
   try {
-    const response = await apiClient.get<ParametersResponse>('/weather/parameters');
+    const response = await apiClient.get<any>('/weather/parameters');
     return response.data;
   } catch (error) {
     console.error('Error fetching weather parameters:', error);

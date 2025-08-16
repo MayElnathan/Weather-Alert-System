@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, Save, AlertTriangle } from 'lucide-react';
+import { X, Save } from 'lucide-react';
 import { Alert, CreateAlertData } from '../types/alert';
 import { LocationInfo } from '../services/geolocationService';
 import LocationAutocomplete from './LocationAutocomplete';
@@ -11,6 +11,7 @@ import CustomSelect from './CustomSelect';
 const alertSchema = z.object({
   name: z.string().min(1, 'Alert name is required').max(100, 'Alert name too long'),
   location: z.string().min(1, 'Location is required'),
+  locationName: z.string().optional(), // Optional human-readable location name
   parameter: z.string().min(1, 'Parameter is required'),
   operator: z.enum(['gt', 'gte', 'lt', 'lte', 'eq', 'ne'], {
     errorMap: () => ({ message: 'Invalid operator' }),
@@ -56,7 +57,7 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
   useEffect(() => {
     if (alert) {
       setValue('name', alert.name);
-      setValue('location', alert.location);
+      setValue('location', alert.locationName || alert.location); // Use locationName if available, fallback to location
       setValue('parameter', alert.parameter);
       setValue('operator', alert.operator as 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'ne');
       setValue('threshold', alert.threshold);
@@ -68,8 +69,12 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
       if (coordMatch) {
         setSelectedLocationCoordinates(alert.location);
       }
+    } else {
+      // Reset form when alert becomes null (after successful update)
+      reset();
+      setSelectedLocationCoordinates('');
     }
-  }, [alert, setValue]);
+  }, [alert, setValue, reset]);
 
   const handleFormSubmit = async (data: AlertFormData) => {
     setIsSubmitting(true);
@@ -79,6 +84,7 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
       const alertData = {
         ...data,
         location: locationData,
+        locationName: data.location, // Store the human-readable location name
       };
       
       await onSubmit(alertData);
@@ -136,7 +142,7 @@ const AlertForm = ({ alert, onSubmit, onClose, isLoading = false }: AlertFormPro
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-      <div className="relative top-0 mx-auto p-6 border w-[90%] max-w-2xl shadow-lg rounded-lg bg-white">
+      <div className="relative top-0 mx-auto p-4 md:p-6 border w-[90%] max-w-2xl shadow-lg rounded-lg bg-white">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900">
             {alert ? 'Edit Alert' : 'Create New Alert'}

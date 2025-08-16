@@ -172,7 +172,7 @@ const CurrentStatePage = () => {
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center text-red-700">
                           <MapPin className="h-4 w-4 mr-2" />
-                          {alert.location}
+                          {alert.locationName || alert.location}
                         </div>
                         <div className="flex items-center text-red-700">
                           {getParameterIcon(alert.parameter)}
@@ -202,9 +202,9 @@ const CurrentStatePage = () => {
         </div>
       )}
 
-      {/* All Alerts Status */}
+      {/* All Active Alerts Status */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-gray-900">All Alerts Status</h2>
+        <h2 className="text-xl font-semibold text-gray-900">All Active Alerts Status</h2>
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -244,7 +244,7 @@ const CurrentStatePage = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-900">{alert.location}</span>
+                        <span className="text-sm text-gray-900">{alert.locationName || alert.location}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

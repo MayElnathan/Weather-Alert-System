@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, AlertTriangle, Edit, Trash2, Eye, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, AlertTriangle } from 'lucide-react';
 import { getAlerts, createAlert, updateAlert, deleteAlert, toggleAlertActive } from '../services/alertService';
 import { Alert, CreateAlertData } from '../types/alert';
 import AlertForm from '../components/AlertForm';
@@ -46,6 +46,7 @@ const AlertsPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['alerts'] });
       setEditingAlert(null);
+      setIsFormOpen(false); // Close the form after successful update
       toast.success('Alert updated successfully!');
     },
     onError: error => {
