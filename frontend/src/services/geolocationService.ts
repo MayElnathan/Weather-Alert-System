@@ -1,3 +1,5 @@
+import uniqBy from 'lodash/uniqBy';
+
 export interface LocationCoordinates {
   latitude: number;
   longitude: number;
@@ -129,7 +131,7 @@ export class GeolocationService {
 
       const data = await response.json();
       
-      return data.map((item: any) => {
+      const parsedLocations =data.map((item: any) => {
         const address = item.address || {};
         const city = address.city || address.town || address.village || address.county || '';
         const state = address.state || address.province || '';
@@ -151,6 +153,8 @@ export class GeolocationService {
           isCurrentLocation: false,
         };
       });
+
+      return uniqBy<LocationInfo>(parsedLocations, 'name');
     } catch (error) {
       console.error('Location search failed:', error);
       return [];
