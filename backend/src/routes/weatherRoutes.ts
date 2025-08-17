@@ -101,7 +101,7 @@ const getWeather = async (req: Request, res: Response) => {
  *         description: Internal server error
  */
 router.get('/', (req: Request, res: Response, next: NextFunction) => {
-  getWeather(req, res).then(next).catch(next);
+  getWeather(req, res).then(()=>{next()}).catch(next);
 });
 
 export default router;
