@@ -80,7 +80,7 @@ export const deleteAlert = async (id: string): Promise<void> => {
 
 export const toggleAlertActive = async (id: string, isActive: boolean): Promise<Alert> => {
   try {
-    return await updateAlert({ id, data: { isActive: !isActive } });
+    return await updateAlert({ id, data: { isActive: isActive } });
   } catch (error) {
     console.error('Error toggling alert active state:', error);
     throw error;
