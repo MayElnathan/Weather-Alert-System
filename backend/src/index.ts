@@ -33,9 +33,16 @@ const swaggerOptions = {
         url: `http://localhost:${PORT}`,
         description: 'Development server',
       },
+      {
+        url: 'http://localhost/api',
+        description: 'Production server (via nginx proxy)',
+      },
     ],
   },
-  apis: ['./src/routes/*.ts'],
+  apis: [
+    './src/routes/*.ts',  // Development
+    './dist/routes/*.js', // Production (compiled)
+  ],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
