@@ -4,32 +4,52 @@
 
 ## Frontend Technologies
 React - Modern UI framework with component-based architecture
+
 Vite - Ultra-fast build tool for development
+
 TypeScript - Type-safe JavaScript development
+
 Tailwind CSS - Utility-first CSS framework
+
 TanStack React Query - Server state management and caching
+
 React Hook Form - High-performance form handling
 
 
 ## Backend Technologies
 Node.js - JavaScript runtime for server-side development
+
 Express.js - Minimal web framework with middleware support
+
 PostgreSQL - Advanced relational database
+
 Prisma - Type-safe database ORM
+
 node-cache - fast in-memory caching for frequently accessed data
+
 node-cron - Schedule recurring tasks for weather alert evaluation
 
 
 ## Infrastructure & DevOps
 Docker - Containerization for consistent deployments
+
 Docker Compose - Multi-service orchestration
+
 Nginx - Reverse proxy and static file serving
+
 Alpine Linux - Lightweight container images
 
 
 ## External Services
 Tomorrow.io API - Hyperlocal weather data provider
+
 Geocoding Services - Location coordinate conversion
+
+## **Important Assumption**: 
+The cron service evaluates alerts every 5 minutes. When refreshing alert data in the frontend, the system retrieves the most recent evaluation results from the database rather than making real-time API calls. This ensures consistent data across the application and reduces external API usage.
+
+I assume that you have your own Tomorrow.io API Key in order to run the project.
+
 
 
 ## 📋 Step-by-Step Setup Instructions
