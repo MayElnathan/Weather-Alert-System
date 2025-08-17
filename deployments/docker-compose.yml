@@ -41,9 +41,7 @@ services:
         sleep 10 &&
         echo 'Running Prisma migrations...' &&
         npx prisma migrate deploy &&
-        echo 'Migrations completed successfully' &&
-        npx prisma generate &&
-        echo 'Prisma client generated successfully'
+        echo 'Migrations completed successfully'
       "
 
   # Backend API service

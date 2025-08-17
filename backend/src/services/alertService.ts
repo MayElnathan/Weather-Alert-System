@@ -1,9 +1,25 @@
-import { Alert, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { createTomorrowIOService, TomorrowIOService } from './tomorrowIOService';
 import { logger } from '../utils/logger';
 
 // Simple type declaration for node-cron
 const cron: any = require('node-cron');
+
+// Define Alert type based on Prisma schema
+type Alert = {
+  id: string;
+  name: string;
+  location: string;
+  locationName: string;
+  parameter: string;
+  operator: string;
+  threshold: number;
+  unit: string;
+  description?: string | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export interface AlertEvaluationResult {
   alertId: string;

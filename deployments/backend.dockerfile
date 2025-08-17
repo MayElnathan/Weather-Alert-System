@@ -6,8 +6,14 @@ WORKDIR /app
 # Copy package files
 COPY backend/package*.json ./
 
-# Install dependencies
+# Install dependencies (including dev dependencies needed for build)
 RUN npm ci
+
+# Copy Prisma schema and migrations
+COPY backend/prisma ./prisma
+
+# Generate Prisma client for all binary targets
+RUN npx prisma generate
 
 # Copy source code
 COPY backend/ ./
@@ -42,7 +48,7 @@ COPY --from=builder /app/prisma ./prisma
 # Copy environment file if it exists
 COPY backend/.env* ./
 
-# Generate Prisma client in production stage
+# Generate Prisma client in production stage with OpenSSL 1.1
 RUN npx prisma generate
 
 # Change ownership to nodejs user

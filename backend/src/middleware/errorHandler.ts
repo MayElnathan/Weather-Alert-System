@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { Prisma } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { logger } from '../utils/logger';
 
 export interface AppError extends Error {
@@ -53,7 +53,7 @@ export const errorHandler = (
       message: err.message,
       code: err.code,
     }));
-  } else if (error instanceof Prisma.PrismaClientKnownRequestError) {
+  } else if (error instanceof PrismaClientKnownRequestError) {
     switch (error.code) {
       case 'P2002':
         statusCode = 409;
